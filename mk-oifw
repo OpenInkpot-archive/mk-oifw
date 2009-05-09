@@ -70,7 +70,7 @@ class Block(object):
                 crc32 = zlib.crc32(b, crc32)
                 size -= len(b)
                 b = fh.read(BLOCK_SIZE)
-        self.properties['crc32'] = struct.pack('<I', crc32)
+        self.properties['crc32'] = struct.pack('<I', crc32 & 0xffffffff)
 
     def header_size(self):
         return (4 # size of block name size
