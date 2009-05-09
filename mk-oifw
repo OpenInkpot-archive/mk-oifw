@@ -1,0 +1,196 @@
+#!/usr/bin/python
+#
+# mk-oifw - OIFW firmware file generation tool
+# Copyright (C) 2009 Mikhail Gusarov <dottedmag@dottedmag.net>
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+from __future__ import with_statement
+import zlib
+import os
+import struct
+import optparse
+import ConfigParser
+
+__version__ = '0.1'
+
+BLOCK_SIZE=4096
+
+class Properties(object):
+    def __init__(self):
+        self.properties = {}
+
+    def header_size(self):
+        size = 8 # size of terminator
+        for k,v in self.properties.iteritems():
+            size += 4 + 4 + len(k)+1 + len(v)
+        return size
+
+    def __setitem__(self, key, value):
+        self.properties[key] = value
+
+    def dump(self, fh):
+        for k,v in self.properties.iteritems():
+            fh.write(struct.pack("<II%ss%ss" % (len(k)+1, len(v)), len(k)+1, len(v), k, v))
+        fh.write(struct.pack("<II", 0, 0))
+
+class Block(object):
+    def __init__(self, name, filename, size=None):
+        self.name = name
+        self.filename = filename
+        self.properties = Properties()
+        if size:
+            self.size = size
+        else:
+            si = os.stat(self.filename)
+            self.size = si.st_size
+        self.offset = None
+
+    def __setitem__(self, key, value):
+        self.properties[key] = value
+
+    def add_crc32(self):
+        crc32 = zlib.crc32("")
+        size = self.size
+        with open(self.filename) as fh:
+            b = fh.read(BLOCK_SIZE)
+            while size > 0 and b:
+                crc32 = zlib.crc32(b, crc32)
+                size -= len(b)
+                b = fh.read(BLOCK_SIZE)
+        self.properties['crc32'] = struct.pack('<I', crc32)
+
+    def header_size(self):
+        return (4 # size of block name size
+            + 8 # size of block offset
+            + 8 # size of block size
+            + len(self.name)+1 # size of block name
+            + self.properties.header_size()) # size of properties
+
+    def dump(self, fh):
+        assert self.offset is not None, "Block should be added to firmware to be dumped"
+
+        fh.write(struct.pack("<IQQ%ss" % (len(self.name)+1), len(self.name)+1,
+                             self.size, self.offset, self.name))
+        self.properties.dump(fh)
+
+    def dump_body(self, fh):
+        size = self.size
+        with open(self.filename) as rfh:
+            b = rfh.read(min(size, BLOCK_SIZE))
+            while size > 0 and b:
+                fh.write(b)
+                size -= len(b)
+                b = rfh.read(min(size, BLOCK_SIZE))
+
+class Firmware(object):
+    def __init__(self):
+        self.properties = Properties()
+        self.blocks = []
+
+    def __setitem__(self, key, value):
+        self.properties[key] = value
+
+    def add_block(self, block):
+        self.blocks.append(block)
+
+    def header_size(self):
+        size = (4 # magic string
+               + 4) # header size
+        size += self.properties.header_size()
+        for b in self.blocks:
+            size += b.header_size()
+        return size
+
+    def dump(self, fh):
+        # Detect blocks offsets
+        offset = self.header_size()
+
+        # align
+        while offset % 4: offset += 1
+        for b in self.blocks:
+            b.offset = offset
+            offset += b.size
+
+            # align
+            while offset % 4: offset += 1
+
+        fh.write(struct.pack("<4sI", "OIFW", self.header_size()))
+        self.properties.dump(fh)
+        for b in self.blocks:
+            b.dump(fh)
+
+        for b in self.blocks:
+            # align
+            while fh.tell() % 4: fh.write("\xff")
+            b.dump_body(fh)
+
+def read_config(config_name):
+    fw = Firmware()
+
+    config = ConfigParser.SafeConfigParser()
+    config.read(config_name)
+
+    for sect in config.sections():
+        if sect == 'GLOBAL':
+            for opt in config.options('GLOBAL'):
+                fw[opt] = config.get('GLOBAL', opt) + '\0'
+        else:
+            name = sect
+
+            if config.has_option(sect, 'filename'):
+                filename = config.get(sect, 'filename')
+                config.remove_option(sect, 'filename')
+            else:
+                raise RuntimeError("Section %s does not contain 'filename' option" % sect)
+
+            if config.has_option(sect, 'size'):
+                size = config.getint(sect, 'size')
+                config.remove_option(sect, 'size')
+            else:
+                size = None
+
+            if config.has_option(sect, 'use-crc32'):
+                use_crc32 = config.getboolean(sect, 'use-crc32')
+                config.remove_option(sect, 'use-crc32')
+            else:
+                use_crc32 = True
+
+            b = Block(name, filename, size)
+            if use_crc32:
+                b.add_crc32()
+
+            for opt in config.options(sect):
+                b[opt] = config.get(sect, opt) + '\0'
+
+            fw.add_block(b)
+    return fw
+
+def run(config_file, output_file):
+    fw = read_config(config_file)
+    with open(output_file, 'wb') as fh:
+        fw.dump(fh)
+
+if __name__ == '__main__':
+    optparser = optparse.OptionParser(usage='%prog <config file> <output file>',
+                                      version='%prog ' + __version__)
+    (options, args) = optparser.parse_args()
+
+    if len(args) < 2:
+        optparser.error("config file and output file are required")
+    if len(args) > 2:
+        optparser.error("only config file and output file are reqired")
+
+    run(args[0], args[1])
