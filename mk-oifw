@@ -83,7 +83,7 @@ class Block(object):
         assert self.offset is not None, "Block should be added to firmware to be dumped"
 
         fh.write(struct.pack("<IQQ%ss" % (len(self.name)+1), len(self.name)+1,
-                             self.offset, self.size, self.offset, self.name))
+                             self.offset, self.size, self.name))
         self.properties.dump(fh)
 
     def dump_body(self, fh):
