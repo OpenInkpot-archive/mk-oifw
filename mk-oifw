@@ -108,7 +108,8 @@ class Firmware(object):
 
     def header_size(self):
         size = (4 # magic string
-               + 4) # header size
+               + 4 # header size
+               + 4 + 8 + 8) # end-of-blocks terminator
         size += self.properties.header_size()
         for b in self.blocks:
             size += b.header_size()
@@ -131,6 +132,8 @@ class Firmware(object):
         self.properties.dump(fh)
         for b in self.blocks:
             b.dump(fh)
+
+        fh.write(struct.pack("<IQQ", 0, 0, 0))
 
         for b in self.blocks:
             # align
