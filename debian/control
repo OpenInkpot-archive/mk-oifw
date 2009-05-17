@@ -1,0 +1,13 @@
+Source: mk-oifw
+Section: host/tools
+Priority: optional
+Maintainer: Mikhail Gusarov <dottedmag@dottedmag.net>
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.0
+
+Package: mk-oifw
+Architecture: all
+Depends: python (>= 2.5)
+Description: OpenInkpot firmware file generation tool
+ mk-oifw generates firmware file in format described in
+ http://openinkpot.org/wiki/FirmwareFormat
