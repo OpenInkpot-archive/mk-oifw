@@ -65,11 +65,11 @@ class Block(object):
         crc32 = zlib.crc32("")
         size = self.size
         with open(self.filename) as fh:
-            b = fh.read(BUF_SIZE)
-            while size > 0 and b:
-                crc32 = zlib.crc32(b, crc32)
-                size -= len(b)
-                b = fh.read(BUF_SIZE)
+            buf = fh.read(BUF_SIZE)
+            while size > 0 and buf:
+                crc32 = zlib.crc32(buf, crc32)
+                size -= len(buf)
+                buf = fh.read(BUF_SIZE)
         self.properties['crc32'] = struct.pack('<I', crc32 & 0xffffffff)
 
     def header_size(self):
@@ -89,16 +89,16 @@ class Block(object):
     def dump_body(self, fh):
         size = self.size
         with open(self.filename) as rfh:
-            b = rfh.read(min(size, BUF_SIZE))
-            while size > 0 and b:
-                fh.write(b)
-                size -= len(b)
-                b = rfh.read(min(size, BUF_SIZE))
-        b = "\xff" * min(size, BUF_SIZE)
+            buf = rfh.read(min(size, BUF_SIZE))
+            while size > 0 and buf:
+                fh.write(buf)
+                size -= len(buf)
+                buf = rfh.read(min(size, BUF_SIZE))
+        buf = "\xff" * min(size, BUF_SIZE)
         while size > 0:
-            fh.write(b)
-            size -= len(b)
-            b = "\xff" * min(size, BUF_SIZE)
+            fh.write(buf)
+            size -= len(buf)
+            buf = "\xff" * min(size, BUF_SIZE)
 
 class Firmware(object):
     def __init__(self):
