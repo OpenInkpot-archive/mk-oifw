@@ -94,6 +94,11 @@ class Block(object):
                 fh.write(b)
                 size -= len(b)
                 b = rfh.read(min(size, BLOCK_SIZE))
+        b = "\xff" * min(size, BLOCK_SIZE)
+        while size > 0:
+            fh.write(b)
+            size -= len(b)
+            b = "\xff" * min(size, BLOCK_SIZE)
 
 class Firmware(object):
     def __init__(self):
