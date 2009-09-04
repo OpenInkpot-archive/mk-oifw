@@ -21,6 +21,7 @@ from __future__ import with_statement
 import zlib
 import os
 import struct
+import sys
 import optparse
 import ConfigParser
 
@@ -149,7 +150,9 @@ def read_config(config_name):
     fw = Firmware()
 
     config = ConfigParser.SafeConfigParser()
-    config.read(config_name)
+    if not config.read(config_name):
+        sys.stderr.write("mk-oifw: %s: No such file or directory\n" % config_name)
+        sys.exit(1)
 
     for sect in config.sections():
         if sect == 'GLOBAL':
