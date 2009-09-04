@@ -1,3 +1,9 @@
+mk-oifw (0.1.1) asimov; urgency=low
+
+  * Bail out if configuration file can't be opened.
+
+ -- Mikhail Gusarov <dottedmag@dottedmag.net>  Sat, 05 Sep 2009 03:02:39 +0700
+
 mk-oifw (0.1) asimov; urgency=low
 
   * Initial release.
