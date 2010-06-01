@@ -1,3 +1,9 @@
+mk-oifw (0.1.2) zelazny; urgency=low
+
+  * Turn crc32 property into string except N516 epoch 0 firmware.
+
+ -- Mikhail Gusarov <dottedmag@dottedmag.net>  Wed, 02 Jun 2010 05:49:44 +0700
+
 mk-oifw (0.1.1) asimov; urgency=low
 
   * Bail out if configuration file can't be opened.
