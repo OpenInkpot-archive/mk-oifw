@@ -168,7 +168,9 @@ def read_config(config_name):
         if sect == 'GLOBAL':
             for opt in config.options('GLOBAL'):
                 fw[opt] = config.get('GLOBAL', opt) + '\0'
-        else:
+
+    for sect in config.sections():
+        if sect != 'GLOBAL':
             name = sect
 
             if config.has_option(sect, 'filename'):
@@ -188,15 +190,16 @@ def read_config(config_name):
                 config.remove_option(sect, 'use-crc32')
             else:
                 use_crc32 = True
+
+
+            b = Block(name, filename, size)
+            if use_crc32:
                 # QUIRK: In N516 firmware epoch 0 crc32 property is 32-bit
                 # 4-byte little-endian integer, not a string
                 if fw.get('epoch', '0\0') == '0\0' and fw.get('device') == 'n516\0':
                     old_crc_format = True
                 else:
                     old_crc_format = False
-
-            b = Block(name, filename, size)
-            if use_crc32:
                 b.add_crc32(old_crc_format)
 
             for opt in config.options(sect):
